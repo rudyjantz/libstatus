@@ -31,36 +31,36 @@ GPUSystem::GPUSystem(std::string filename): fname(filename), loop(false) {
 
         rc = nvmlDeviceGetMigMode(device, &current_mode, &pending_mode);
         assert(rc == NVML_SUCCESS);
-        assert(current_mode == NVML_DEVICE_MIG_ENABLE);
-
-        rc = nvmlDeviceGetMaxMigDeviceCount(device, &max_mig_device_count);
-        assert(rc == NVML_SUCCESS);
-        std::cout << "  max mig device count: " << max_mig_device_count << "\n";
-
-        while (mig_idx < max_mig_device_count) {
-            nvmlDevice_t mig_device;
-            unsigned int is_mig_device;
-            rc = nvmlDeviceGetMigDeviceHandleByIndex(device, mig_idx, &mig_device);
-            if (rc != NVML_SUCCESS) {
-                // Case: I assume this happens when we fail to get the mig
-                // device at some index beyond the valid index, but before
-                // the max device count. I'm not sure why there is no API call
-                // for the number of mig devices. I only see a call for the max
-                // number. For the 4xA30s exercise on quorra1, this condition
-                // doesn't seem to get hit (I guess because we use the max
-                // number of slices).
-                break;
-            }
+        if (current_mode == NVML_DEVICE_MIG_ENABLE) {
+            rc = nvmlDeviceGetMaxMigDeviceCount(device, &max_mig_device_count);
             assert(rc == NVML_SUCCESS);
+            std::cout << "  max mig device count: " << max_mig_device_count << "\n";
 
-            rc = nvmlDeviceIsMigDeviceHandle(mig_device, &is_mig_device); // sanity check
-            assert(rc == NVML_SUCCESS);
-            assert(is_mig_device == 1);
+            while (mig_idx < max_mig_device_count) {
+                nvmlDevice_t mig_device;
+                unsigned int is_mig_device;
+                rc = nvmlDeviceGetMigDeviceHandleByIndex(device, mig_idx, &mig_device);
+                if (rc != NVML_SUCCESS) {
+                    // Case: I assume this happens when we fail to get the mig
+                    // device at some index beyond the valid index, but before
+                    // the max device count. I'm not sure why there is no API call
+                    // for the number of mig devices. I only see a call for the max
+                    // number. For the 4xA30s exercise on quorra1, this condition
+                    // doesn't seem to get hit (I guess because we use the max
+                    // number of slices).
+                    break;
+                }
+                assert(rc == NVML_SUCCESS);
 
-            std::cout << "  adding a mig device\n";
-            devices.push_back(new GPUDevice(mig_device));
+                rc = nvmlDeviceIsMigDeviceHandle(mig_device, &is_mig_device); // sanity check
+                assert(rc == NVML_SUCCESS);
+                assert(is_mig_device == 1);
 
-            mig_idx++;
+                std::cout << "  adding a mig device\n";
+                devices.push_back(new GPUDevice(mig_device));
+
+                mig_idx++;
+        }
         }
 
         std::cout << "  added " << mig_idx << " mig devices\n";
